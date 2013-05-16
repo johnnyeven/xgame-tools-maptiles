@@ -6,7 +6,37 @@
 	<s:layout>
 		<s:BasicLayout/>
 	</s:layout>
+	
+	<fx:Script>
+		<![CDATA[
+			protected function btnExit_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				stage.nativeWindow.close();
+			}
+		]]>
+	</fx:Script>
+	
 	<fx:Declarations>
 		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
 	</fx:Declarations>
+	<s:Button id="btnExit" right="30" bottom="30" width="90" height="30" label="退出"
+			  click="btnExit_clickHandler(event)"/>
+	<mx:VRule right="200" top="10" bottom="84" width="1"/>
+	<mx:HRule left="10" right="10" bottom="84" height="1"/>
+	<s:Group left="10" right="209" top="10" bottom="93">
+		<s:Button width="122" height="41" label="载入图片" horizontalCenter="0" verticalCenter="0"/>
+	</s:Group>
+	<s:Group left="608" right="10" top="10" bottom="93">
+		<s:Label x="10" y="10" text="地图ID"/>
+		<s:TextInput x="10" y="30" width="162"/>
+		<s:Label x="10" y="60" text="瓦片数量(X轴)"/>
+		<s:TextInput x="10" y="80" width="162"/>
+		<s:Label x="10" y="110" text="瓦片数量(Y轴)"/>
+		<s:TextInput x="10" y="130" width="162"/>
+		<s:Label x="10" y="160" text="寻路格子数量(X轴)"/>
+		<s:TextInput x="10" y="180" width="162"/>
+		<s:Label x="10" y="210" text="寻路格子数量(Y轴)"/>
+		<s:TextInput x="10" y="230" width="162"/>
+	</s:Group>
 </s:WindowedApplication>
