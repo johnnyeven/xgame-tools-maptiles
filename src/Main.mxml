@@ -9,11 +9,234 @@
 	
 	<fx:Script>
 		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.events.ResizeEvent;
+			import mx.graphics.codec.IImageEncoder;
+			import mx.graphics.codec.JPEGEncoder;
+			import mx.graphics.codec.PNGEncoder;
+			
+			import spark.events.TextOperationEvent;
+			import spark.primitives.Rect;
+			
+			private var _bitmapData: BitmapData;
+			private var _lineX: Shape;
+			private var _lineY: Shape;
+			private var _imgLoaded: Boolean = false;
+			private const SCALE_RATE: Number = .1;
+			[Bindable]
+			private var _itemList: ArrayCollection = new ArrayCollection([
+				{label: "jpg", data: "jpg"},
+				{label: "png", data: "png"}
+			]);
 			protected function btnExit_clickHandler(event:MouseEvent):void
 			{
-				// TODO Auto-generated method stub
 				stage.nativeWindow.close();
 			}
+			
+			protected function btnCooseSaveDir_clickHandler(event:MouseEvent):void
+			{
+				var _file: File = new File();
+				_file.addEventListener(Event.SELECT, onDirSelected);
+				_file.browseForDirectory("选择目录");
+			}
+			
+			private function onDirSelected(evt: Event): void
+			{
+				lblSaveDir.text = (evt.target as File).nativePath;
+			}
+			
+			protected function btnOpenImg_clickHandler(event:MouseEvent):void
+			{
+				var _file: File = new File();
+				_file.addEventListener(Event.SELECT, onImgSelected);
+				
+				var _filter: FileFilter = new FileFilter("图片 (*.jpg, *.jpeg, *.png, *.gif)", "*.jpg; *.jpeg; *.png; *.gif");
+				_file.browseForOpen("载入图片", [_filter]);
+			}
+			
+			private function onImgSelected(evt: Event): void
+			{
+				var _fileStream: FileStream = new FileStream();
+				var _bytes: ByteArray = new ByteArray();
+				_fileStream.open(evt.target as File, FileMode.READ);
+				_fileStream.readBytes(_bytes, 0, _fileStream.bytesAvailable);
+				_fileStream.close();
+				
+				var _loader: Loader = new Loader();
+				_loader.contentLoaderInfo.addEventListener(Event.COMPLETE, onImgLoadComplete);
+				_loader.loadBytes(_bytes);
+			}
+			
+			private function onImgLoadComplete(evt: Event): void
+			{
+				var _loaderInfo: LoaderInfo = evt.target as LoaderInfo;
+				_bitmapData = (_loaderInfo.content as Bitmap).bitmapData;
+				
+				var _targetData: BitmapData = new BitmapData(_bitmapData.width, _bitmapData.height, false);
+				_targetData.draw(_bitmapData);
+				img.source = _targetData;
+				
+				btnOpenImg.visible = false;
+				lblImgInfo.text = "宽度：" + _bitmapData.width + "，高度：" + _bitmapData.height;
+				
+				var scale: int = (img.width / _bitmapData.width) * 100;
+				lblScale.text = scale + "%";
+				sldImgZoom.value = scale;
+				sldImgZoom.enabled = true;
+				sldImgZoom.visible = true;
+				
+				_lineX = new Shape();
+				_lineY = new Shape();
+				_imgLoaded = true;
+			}
+			
+			private function imgMouseDown(evt: MouseEvent): void
+			{
+				(evt.currentTarget as Image).startDrag();
+			}
+			
+			private function imgMouseUp(evt: MouseEvent): void
+			{
+				(evt.currentTarget as Image).stopDrag();
+			}
+			
+			protected function container_resizeHandler(event:ResizeEvent):void
+			{
+				img.width = container.width;
+				img.height = container.height;
+			}
+			
+			protected function sldImgZoom_changeHandler(event:Event):void
+			{
+				var scale: int = sldImgZoom.value;
+				var width: Number = _bitmapData.width * (scale / 100);
+				var currentScale: Number = width / img.width;
+				img.scaleX = currentScale;
+				img.scaleY = currentScale;
+				lblScale.text = scale + "%";
+			}
+			
+			protected function iptTileNumX_changeHandler(event:TextOperationEvent):void
+			{
+				var tileNumX: Number = Number(iptTileNumX.text);
+				var bm: BitmapData = img.source as BitmapData;
+				bm.draw(_bitmapData);
+				bm.draw(_lineY);
+				if(!isNaN(tileNumX) && tileNumX > 1)
+				{
+					var single: Number = _bitmapData.width / tileNumX;
+					_lineX.graphics.clear();
+					_lineX.graphics.lineStyle(2, 0xFFFFFF);
+					_lineX.graphics.beginFill(1);
+					for(var i: int = 1; i < tileNumX; i++)
+					{
+						_lineX.graphics.moveTo(single * i, 0);
+						_lineX.graphics.lineTo(single* i, _bitmapData.height);
+					}
+					_lineX.graphics.endFill();
+					bm.draw(_lineX);
+				}
+			}
+			
+			protected function iptTileNumY_changeHandler(event:TextOperationEvent):void
+			{
+				var tileNumY: Number = Number(iptTileNumY.text);
+				var bm: BitmapData = img.source as BitmapData;
+				bm.draw(_bitmapData);
+				bm.draw(_lineX);
+				if(!isNaN(tileNumY) && tileNumY > 1)
+				{
+					var single: Number = _bitmapData.height / tileNumY;
+					_lineY.graphics.clear();
+					_lineY.graphics.lineStyle(2, 0xFFFFFF);
+					_lineY.graphics.beginFill(1);
+					for(var i: int = 1; i < tileNumY; i++)
+					{
+						_lineY.graphics.moveTo(0, single * i);
+						_lineY.graphics.lineTo(_bitmapData.width, single* i);
+					}
+					_lineY.graphics.endFill();
+					bm.draw(_lineY);
+				}
+			}
+			
+			protected function btnSave_clickHandler(event:MouseEvent):void
+			{
+				if(iptMapId.text == "" || lblSaveDir.text == "" || !_imgLoaded)
+				{
+					return;
+				}
+				var _prefix: String = cboPrefix.selectedItem.label;
+				var _encoder: IImageEncoder;
+				if(_prefix == 'jpg')
+				{
+					_encoder = new JPEGEncoder(100);
+				}
+				else if(_prefix == 'png')
+				{
+					_encoder = new PNGEncoder();
+				}
+				
+				var tileNumX: Number = Number(iptTileNumX.text);
+				var tileNumY: Number = Number(iptTileNumY.text);
+				if(!isNaN(tileNumX) && tileNumX > 0 && (!isNaN(tileNumY) && tileNumY > 0))
+				{
+					var _bitmapBytes: ByteArray;
+					var _file: File = new File(lblSaveDir.text + "/" + iptMapId.text);
+					var _fileStream: FileStream = new FileStream();
+					var singleX: Number = _bitmapData.width / tileNumX;
+					var singleY: Number = _bitmapData.height / tileNumY;
+					var _sourceRect: Rectangle = new Rectangle(0, 0, singleX, singleY);
+					var _tmpBitmapData: BitmapData = new BitmapData(singleX, singleY);
+					
+					//写入配置文件
+					var _config: XML = 
+						<map>
+							<id>{iptMapId.text}</id>
+							<tileNumWidth>{iptTileNumX.text}</tileNumWidth>
+							<tileNumHeight>{iptTileNumY.text}</tileNumHeight>
+							<blockWidth>{iptBlockNumX.text}</blockWidth>
+							<blockHeight>{iptBlockNumY.text}</blockHeight>
+							<startTileX>90</startTileX>
+							<startTileY>80</startTileY>
+						</map>;
+					_file = _file.resolvePath("config.xml");
+					_fileStream.open(_file, FileMode.WRITE);
+					_fileStream.writeUTFBytes(_config);
+					_fileStream.close();
+					
+					//写入缩略图
+					_file = new File(lblSaveDir.text + "/" + iptMapId.text);
+					var _matrix: Matrix = new Matrix();
+					_matrix.scale(SCALE_RATE, SCALE_RATE);
+					var _smallBitmapData: BitmapData = new BitmapData(_bitmapData.width * SCALE_RATE, _bitmapData.height * SCALE_RATE);
+					_smallBitmapData.draw(_bitmapData, _matrix, null, null, null, true);
+					_bitmapBytes = _encoder.encode(_smallBitmapData);
+					_file = _file.resolvePath("thumbnail." + _prefix);
+					_fileStream.open(_file, FileMode.WRITE);
+					_fileStream.writeBytes(_bitmapBytes, 0, _bitmapBytes.bytesAvailable);
+					_fileStream.close();
+					
+					for(var i: int = 0; i < tileNumX; i++)
+					{
+						for(var j: int = 0; j < tileNumY; j++)
+						{
+							_file = new File(lblSaveDir.text + "/" + iptMapId.text);
+							_sourceRect.x = i * singleX;
+							_sourceRect.y = j * singleY;
+							_tmpBitmapData.copyPixels(_bitmapData, _sourceRect, new Point());
+							_bitmapBytes = _encoder.encode(_tmpBitmapData);
+							_file = _file.resolvePath("assets/" + j + "_" + i + ".jpg");
+							_fileStream.open(_file, FileMode.WRITE);
+							_fileStream.writeBytes(_bitmapBytes, 0, _bitmapBytes.bytesAvailable);
+							_fileStream.close();
+						}
+					}
+					_file = new File(lblSaveDir.text + "/" + iptMapId.text);
+					_file.openWithDefaultApplication();
+				}
+			}
+			
 		]]>
 	</fx:Script>
 	
@@ -21,22 +244,48 @@
 		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
 	</fx:Declarations>
 	<s:Button id="btnExit" right="30" bottom="30" width="90" height="30" label="退出"
-			  click="btnExit_clickHandler(event)"/>
+			  click="btnExit_clickHandler(event)" fontFamily="微软雅黑" fontSize="12"/>
 	<mx:VRule right="200" top="10" bottom="84" width="1"/>
 	<mx:HRule left="10" right="10" bottom="84" height="1"/>
-	<s:Group left="10" right="209" top="10" bottom="93">
-		<s:Button width="122" height="41" label="载入图片" horizontalCenter="0" verticalCenter="0"/>
+	<s:Group id="grpImgShow" left="10" right="209" top="10" bottom="120">
+		<s:BorderContainer id="container" left="0" right="0" top="0" bottom="0" borderVisible="true"
+						   dropShadowVisible="false" resize="container_resizeHandler(event)">
+			<s:layout>
+				<s:BasicLayout clipAndEnableScrolling="true" />
+			</s:layout>
+			<s:Button id="btnOpenImg" width="122" height="41" label="载入图片"
+					  click="btnOpenImg_clickHandler(event)" horizontalCenter="0" verticalCenter="0"/>
+			<s:Image id="img" x="0" y="0" width="579" height="468" mouseDown="imgMouseDown(event)"
+					 mouseUp="imgMouseUp(event)" smooth="false" smoothingQuality="high"/>
+		</s:BorderContainer>
+		
 	</s:Group>
 	<s:Group left="608" right="10" top="10" bottom="93">
-		<s:Label x="10" y="10" text="地图ID"/>
-		<s:TextInput x="10" y="30" width="162"/>
-		<s:Label x="10" y="60" text="瓦片数量(X轴)"/>
-		<s:TextInput x="10" y="80" width="162"/>
-		<s:Label x="10" y="110" text="瓦片数量(Y轴)"/>
-		<s:TextInput x="10" y="130" width="162"/>
-		<s:Label x="10" y="160" text="寻路格子数量(X轴)"/>
-		<s:TextInput x="10" y="180" width="162"/>
-		<s:Label x="10" y="210" text="寻路格子数量(Y轴)"/>
-		<s:TextInput x="10" y="230" width="162"/>
+		<s:Label right="136" top="10" width="36" text="地图ID"/>
+		<s:TextInput id="iptMapId" right="10" top="30" width="162"/>
+		<s:Label right="96" top="60" width="76" text="瓦片数量(X轴)"/>
+		<s:TextInput id="iptTileNumX" right="10" top="80" width="162"
+					 change="iptTileNumX_changeHandler(event)"/>
+		<s:Label right="96" top="110" width="76" text="瓦片数量(Y轴)"/>
+		<s:TextInput id="iptTileNumY" right="10" top="130" width="162"
+					 change="iptTileNumY_changeHandler(event)"/>
+		<s:Label right="72" top="160" width="100" text="寻路格子数量(X轴)"/>
+		<s:TextInput id="iptBlockNumX" right="10" top="180" width="162"/>
+		<s:Label right="72" top="210" width="100" text="寻路格子数量(Y轴)"/>
+		<s:TextInput id="iptBlockNumY" right="10" top="230" width="162"/>
+		<s:Button id="btnCooseSaveDir" right="82" top="335" width="90" height="30" label="浏览"
+				  click="btnCooseSaveDir_clickHandler(event)" fontFamily="微软雅黑" fontSize="12"/>
+		<s:Label right="100" top="315" width="72" text="选择保存位置"/>
+		<s:Label id="lblSaveDir" right="10" top="373" bottom="10" width="162"/>
+		<s:Label x="10" y="260" text="文件格式"/>
+		<s:ComboBox id="cboPrefix" x="10" y="280" width="162" dataProvider="{_itemList}"
+					selectedIndex="0"/>
 	</s:Group>
+	<s:Button id="btnSave" right="128" bottom="30" width="90" height="30" label="保存"
+			  click="btnSave_clickHandler(event)" fontFamily="微软雅黑" fontSize="12"/>
+	<s:Label id="lblImgInfo" left="10" bottom="62" width="551" height="14"/>
+	<s:Label id="lblScale" left="10" bottom="40" width="111" height="14"/>
+	<s:HSlider id="sldImgZoom" visible="false" left="10" right="209" bottom="101"
+			   change="sldImgZoom_changeHandler(event)" enabled="false" liveDragging="true"
+			   maximum="150" minimum="0" stepSize="1"/>
 </s:WindowedApplication>
