@@ -125,6 +125,7 @@
 				if(!isNaN(tileNumX) && tileNumX > 1)
 				{
 					var single: Number = _bitmapData.width / tileNumX;
+					lblTileWidth.text = "瓦片宽度：" + single;
 					_lineX.graphics.clear();
 					_lineX.graphics.lineStyle(2, 0xFFFFFF);
 					_lineX.graphics.beginFill(1);
@@ -147,6 +148,7 @@
 				if(!isNaN(tileNumY) && tileNumY > 1)
 				{
 					var single: Number = _bitmapData.height / tileNumY;
+					lblTileHeight.text = "瓦片高度：" + single;
 					_lineY.graphics.clear();
 					_lineY.graphics.lineStyle(2, 0xFFFFFF);
 					_lineY.graphics.beginFill(1);
@@ -193,10 +195,12 @@
 					var _config: XML = 
 						<map>
 							<id>{iptMapId.text}</id>
+							<width>{_bitmapData.width}</width>
+							<height>{_bitmapData.height}</height>
 							<tileNumWidth>{iptTileNumX.text}</tileNumWidth>
 							<tileNumHeight>{iptTileNumY.text}</tileNumHeight>
-							<blockWidth>{iptBlockNumX.text}</blockWidth>
-							<blockHeight>{iptBlockNumY.text}</blockHeight>
+							<blockNumWidth>{iptBlockNumX.text}</blockNumWidth>
+							<blockNumHeight>{iptBlockNumY.text}</blockNumHeight>
 							<startTileX>90</startTileX>
 							<startTileY>80</startTileY>
 						</map>;
@@ -237,6 +241,26 @@
 				}
 			}
 			
+			protected function iptBlockNumX_changeHandler(event:TextOperationEvent):void
+			{
+				var blockNumX: Number = Number(iptBlockNumX.text);
+				if(!isNaN(blockNumX) && blockNumX > 1)
+				{
+					var single: Number = _bitmapData.width / blockNumX;
+					lblBlockWidth.text = "寻路格子宽度：" + single;
+				}
+			}
+			
+			protected function iptBlockNumY_changeHandler(event:TextOperationEvent):void
+			{
+				var blockNumY: Number = Number(iptBlockNumY.text);
+				if(!isNaN(blockNumY) && blockNumY > 1)
+				{
+					var single: Number = _bitmapData.height / blockNumY;
+					lblBlockHeight.text = "寻路格子高度：" + single;
+				}
+			}
+			
 		]]>
 	</fx:Script>
 	
@@ -270,9 +294,11 @@
 		<s:TextInput id="iptTileNumY" right="10" top="130" width="162"
 					 change="iptTileNumY_changeHandler(event)"/>
 		<s:Label right="72" top="160" width="100" text="寻路格子数量(X轴)"/>
-		<s:TextInput id="iptBlockNumX" right="10" top="180" width="162"/>
+		<s:TextInput id="iptBlockNumX" right="10" top="180" width="162"
+					 change="iptBlockNumX_changeHandler(event)"/>
 		<s:Label right="72" top="210" width="100" text="寻路格子数量(Y轴)"/>
-		<s:TextInput id="iptBlockNumY" right="10" top="230" width="162"/>
+		<s:TextInput id="iptBlockNumY" right="10" top="230" width="162"
+					 change="iptBlockNumY_changeHandler(event)"/>
 		<s:Button id="btnCooseSaveDir" right="82" top="335" width="90" height="30" label="浏览"
 				  click="btnCooseSaveDir_clickHandler(event)" fontFamily="微软雅黑" fontSize="12"/>
 		<s:Label right="100" top="315" width="72" text="选择保存位置"/>
@@ -288,4 +314,8 @@
 	<s:HSlider id="sldImgZoom" visible="false" left="10" right="209" bottom="101"
 			   change="sldImgZoom_changeHandler(event)" enabled="false" liveDragging="true"
 			   maximum="150" minimum="0" stepSize="1"/>
+	<s:Label id="lblTileWidth" left="10" bottom="18" width="130" height="14"/>
+	<s:Label id="lblTileHeight" left="148" bottom="18" width="130" height="14"/>
+	<s:Label id="lblBlockWidth" left="286" bottom="18" width="130" height="14"/>
+	<s:Label id="lblBlockHeight" left="424" bottom="18" width="130" height="14"/>
 </s:WindowedApplication>
